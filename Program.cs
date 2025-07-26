@@ -19,7 +19,6 @@ using CUE4Parse.UE4.IO.Objects;
 
 class Program
 {
-
     class MultiTextWriter : TextWriter
     {
         private readonly TextWriter _console;
@@ -52,7 +51,6 @@ class Program
         }
     }
 
-
     class VfsAssetsInfo
     {
         public bool OverridesDefaultAssets { get; set; } = false;
@@ -79,8 +77,6 @@ class Program
     {
         await Task.Run(() =>
         {
-
-
             string exeDir = AppContext.BaseDirectory;
             string configPath = Path.Combine(exeDir, "input\\DekPakModAuditConfig.json");
             string outputLogPath = Path.Combine(exeDir, "output\\DekPakModAudit.log");
@@ -162,6 +158,12 @@ class Program
                     .Select(kv => StripFirstDirectory(((FIoStoreEntry)kv.Value).Path)),
                 StringComparer.OrdinalIgnoreCase);
 
+            var mainPaksAssetVfs = mainPaksProvider.Files
+                .Where(kv => kv.Value is FIoStoreEntry)
+                .Select(kv => ((FIoStoreEntry)kv.Value).Vfs?.ToString() ?? "UnknownVfs")
+                .Distinct()
+                .ToList();
+
             Console.WriteLine($"Main Paks assets count (top-level): {mainPaksAssets.Count}");
 
             // Step 2: Scan input folder recursively
@@ -176,6 +178,7 @@ class Program
             // - UniqueAssets (list)
 
             var outputDict = new Dictionary<string, VfsAssetsInfo>(StringComparer.OrdinalIgnoreCase);
+            bool isPakDirsEqual = string.Equals(mainPaksFolder, mainModsFolder, StringComparison.OrdinalIgnoreCase);
 
             foreach (var kv in inputProvider.Files.OrderBy(f => f.Key))
             {
@@ -200,6 +203,13 @@ class Program
 
                     // Get string key for Vfs
                     string vfsKey = entry.Vfs?.ToString() ?? "UnknownVfs";
+
+                    // If we're scanning the same folder, skip assets already in main paks
+                    if (isPakDirsEqual && mainPaksAssetVfs.Contains(vfsKey))
+                    {
+                        // Console.WriteLine($"Skipping asset in main paks: {vfsKey} - {entry.Path}");
+                        continue;
+                    }
 
                     if (!outputDict.TryGetValue(vfsKey, out var vfsInfo))
                     {
@@ -241,7 +251,6 @@ class Program
             if (outputDict.Values.All(v => !v.OverridesDefaultAssets))
             {
                 Console.WriteLine("No mods override base game assets.");
-                return;
             }
             // Iterate through the output dictionary and print mods that override default assets
             foreach (var kvp in outputDict)
@@ -271,6 +280,55 @@ class Program
                     }
                     Console.WriteLine(); // Add an empty line for separation
                 }
+            }
+
+            // Create a dictionary to track asset usage across mods
+            var assetToMods = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var kvp in outputDict)
+            {
+                string vfsKey = kvp.Key;
+                var vfsInfo = kvp.Value;
+
+                foreach (var asset in vfsInfo.OverriddenAssets.Concat(vfsInfo.UniqueAssets))
+                {
+                    if (!assetToMods.TryGetValue(asset, out var mods))
+                    {
+                        mods = new List<string>();
+                        assetToMods[asset] = mods;
+                    }
+
+                    if (!mods.Contains(vfsKey))
+                    {
+                        mods.Add(vfsKey);
+                    }
+                }
+            }
+
+            // Unload all VFS and dispose providers
+            mainPaksProvider.UnloadAllVfs();
+            inputProvider.UnloadAllVfs();
+            mainPaksProvider.Dispose();
+            inputProvider.Dispose();            
+
+            // Log shared assets used by multiple mods
+            Console.WriteLine("\n== Assets used by multiple mods ==\n");
+
+            bool foundSharedAssets = false;
+            foreach (var kvp in assetToMods.Where(kvp => kvp.Value.Count > 1).OrderBy(kvp => kvp.Key))
+            {
+                foundSharedAssets = true;
+                Console.WriteLine($"Asset: {kvp.Key}");
+                foreach (var mod in kvp.Value)
+                {
+                    Console.WriteLine($"  - Used by: {mod}");
+                }
+                Console.WriteLine();
+            }
+
+            if (!foundSharedAssets)
+            {
+                Console.WriteLine("No assets are shared across multiple mods.");
             }
 
             foreach (var kvp in outputDict)
@@ -312,14 +370,19 @@ class Program
                 Console.WriteLine("No duplicate chunk IDs found.");
             }
 
-
             // Serialize and write output JSON
             var json = JsonConvert.SerializeObject(outputDict, Formatting.Indented);
             File.WriteAllText(jsonOutputFile, json);
 
+            Console.WriteLine("\n== Summary ==\n");
+            Console.WriteLine($"Total default asset overrides: {outputDict.Values.Sum(v => v.OverriddenAssets.Count)}");
+            Console.WriteLine($"Total unique assets found: {outputDict.Values.Sum(v => v.UniqueAssets.Count)}");
+            Console.WriteLine($"Total asset conflicts: {assetToMods.Count(kvp => kvp.Value.Count > 1)}");
+            Console.WriteLine($"Total chunk ID conflicts: {duplicateChunkIds.Count()}");
+
             Console.WriteLine("\n== Output Files ==\n");
-            Console.WriteLine($"  - Logs: {outputLogPath}");
             Console.WriteLine($"  - JSON: {jsonOutputFile}");
+            Console.WriteLine($"  - Logs: {outputLogPath}");
 
             Console.WriteLine("\nPress any key to exit...");
             Console.ReadKey();
