@@ -1,0 +1,62 @@
+# Build results
+bin/
+obj/
+out/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code settings
+.vscode/
+
+# Logs
+*.log
+
+# Packages
+*.nupkg
+*.snupkg
+
+# NuGet packages folder
+packages/
+
+# Rider IDE files
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+
+# DotCover
+*.dotCover
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user
+
+# ASP.NET temporary files
+App_Data/
+
+# Others
+*.cache
+*.ilk
+*.pdb
+*.idb
+*.ipch
+*.iobj
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.bak
+*.backup
+*.log
+*.vspscc
+*.vssscc
+
+# OS generated files
+.DS_Store
+Thumbs.db
