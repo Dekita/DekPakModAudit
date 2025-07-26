@@ -1,6 +1,6 @@
 ﻿// 
 // DekitaRPG@gmail.com
-// PakLister - A tool to compare assets in game Paks with modded assets
+// DekPakModAudit - A tool to compare assets in game Paks with modded assets
 // This tool scans the main game Paks and a specified mod directory, comparing assets
 // and generating a JSON report of overridden and unique assets per VFS key.
 // 
