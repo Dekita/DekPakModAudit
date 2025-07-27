@@ -182,6 +182,7 @@ class Program
 
             foreach (var kv in inputProvider.Files.OrderBy(f => f.Key))
             {
+
                 if (kv.Value is FIoStoreEntry entry)
                 {
                     // Properties of FIoStoreEntry:
@@ -214,9 +215,7 @@ class Program
                     if (!outputDict.TryGetValue(vfsKey, out var vfsInfo))
                     {
                         vfsInfo = new VfsAssetsInfo();
-                        var chunkIdStr = entry.ChunkId.ToString();
-                        var chunkIdClean = chunkIdStr.Split(" | ")[0];
-                        vfsInfo.ChunkID = chunkIdClean;
+                        vfsInfo.ChunkID = entry.IoStoreReader.TocResource.Header.ContainerId.ToString();
                         outputDict[vfsKey] = vfsInfo;
                     }
 
